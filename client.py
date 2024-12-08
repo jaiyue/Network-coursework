@@ -13,17 +13,28 @@ def client_start():
     client_socket.send(username.encode())
     
     welcome_message = client_socket.recv(1024).decode()
-    print(f"message from server: {welcome_message}")
+    print(f"[server]: {welcome_message}")
+
+    print("Use '/quit' to exit the chat room,\n\
+'/boardcast' to boardcast message,\n\
+'/unicast [username]' (no square bracket) to send message to [username],\n\
+'/files' to to request shared folder.")
+    client_socket.setblocking(0)
 
     while True:
         r,w,e = select.select([client_socket, sys.stdin], [], [])
         for s in r:
-            if s == client_socket:
-                message = client_socket.recv(1024).decode()
-                print(f"message from server: {message}")
-            else:
-                message = input("Enter message: ")
+            if s == sys.stdin:
+                message = input("")
                 client_socket.send(message.encode())
+                if message.lower() == "/quit":
+                    print("Exit...")
+                    client_socket.close()
+                    return
+                
+            else:
+                message = client_socket.recv(1024).decode()
+                print(f"{message}")
                 
                 
                 
