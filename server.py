@@ -43,7 +43,7 @@ def server_start():
                 
                 elif data.startswith("/boardcast"): #boardcast message to all users
                     username = clients[s]
-                    message = username + data.split(" ", 1)[1]
+                    message = f"[{username}]:" + data.split(" ", 1)[1]
                     boardcast_message(message, s)
                     print("Already boardcasted message:",message)
                     s.send("Message has been boardcasted".encode())
@@ -51,13 +51,15 @@ def server_start():
                 elif data.startswith("/unicast"): #send private message to a user
                     sender = clients[s]
                     receiver = data.split(" ", 2)[1]
-                    message = f"{sender}:" + data.split(" ", 2)[2]
+                    message = f"[{sender}]:" + data.split(" ", 2)[2]
+                    check = 0
                     for client in clients:
                         if clients[client] == receiver:
                             client.send(message.encode())
+                            check = 1
                             break
-                        else:
-                            s.send("User not found".encode())
+                    if check == 0:
+                        s.send("User not found".encode())
                     
                 else:
                     print('closing', address)
@@ -76,7 +78,7 @@ def remove_client(client_socket, connected_clients, server_socket):
     if client_socket in clients:
         username = clients[client_socket]
         print(f"Client {username} has disconnected")
-        boardcast_message(f"[{username}]has left", client_socket)
+        boardcast_message(f"[{username}] has left", client_socket)
         client_socket.send("You have been disconnected from the server".encode())
         connected_clients.remove(client_socket)
         del clients[client_socket]
