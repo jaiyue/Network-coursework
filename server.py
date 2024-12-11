@@ -1,13 +1,15 @@
 import socket
 import select
 import os
+import sys
 
 clients = {}
+shared_files =  os.getenv("SERVER_SHARED_FILES")
 
 def server_start():
     #create socket
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    port = 12300
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 12300    
     server_socket.bind(('localhost',port))
     print(f"The server is ready to receive,port number:{port}")
     server_socket.listen(5)
@@ -37,9 +39,21 @@ def server_start():
                 if data.lower() == "/quit": #exit server
                     remove_client(s, connected_clients, server_socket)
                 
-                # elif data.lower() == "/file": #access shared files
+                elif data.lower() == "/file": #access shared files
+                    li, count = access_files()
+                    s.send(f"{count} file(s) included in this folder: {li}".encode())
                     
-                #     print(f"Message {data} from {s.getpeername()}")
+                elif data.startswith("/download"): #download a file
+                    filename = data.split(" ", 1)[1]
+                    files = os.listdir(shared_files)
+                    size = os.path.getsize(shared_files + "/" + filename)
+                    username = clients[s]
+                    if filename in files:
+                        s.send(f"Download_File {username} {filename} {size} ".encode())
+                        download(s, filename)
+                    else:
+                        s.send(f"File {filename} is not found".encode())
+                    
                 
                 elif data.startswith("/boardcast"): #boardcast message to all users
                     username = clients[s]
@@ -83,6 +97,26 @@ def remove_client(client_socket, connected_clients, server_socket):
         connected_clients.remove(client_socket)
         del clients[client_socket]
 
+def access_files():
+    if not os.path.exists(shared_files):
+        return "No shared files"
+    else:
+        count = len(os.listdir(shared_files))
+        return os.listdir(shared_files), count
+    
+def download(s, filename):
+    path  = os.path.join(shared_files, filename)
+    with open(path, "rb") as file:
+        while True:
+            data = file.read(1024)
+            if not data:
+                break
+            s.send(data)
+            print(data)
+    print(f"File {filename} sent successfully.")
+
+    
+    
 
 
 if __name__ == "__main__":
