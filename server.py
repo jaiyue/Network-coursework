@@ -28,6 +28,8 @@ def server_start():
     except Exception as e:
         print(f"Unexpected error: {e}")
     finally:
+        for client in clients:
+            remove_client(client)
         server_socket.close()
 
 def handle_client(client_socket):
