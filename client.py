@@ -1,6 +1,6 @@
 import socket
 import sys
-import select
+import threading
 import os
 
 def client_start():
@@ -22,61 +22,60 @@ def client_start():
 '/unicast [username]' (no square bracket) to send a message to [username],\n\
 '/file' to request shared folder,\n\
 '/download [filename]' to download a file.")
-        client_socket.setblocking(0)
+
+        # Start threads for input handling and receiving messages
+        threading.Thread(target=handle_send, args=(client_socket,), daemon=True).start()
+        threading.Thread(target=handle_receive, args=(client_socket,), daemon=True).start()
 
         while True:
-            r, w, e = select.select([client_socket, sys.stdin], [], [])
-            for s in r:
-                if s == sys.stdin:
-                    message = input("")
-                    try:
-                        client_socket.send(message.encode())
-                        if message.lower() == "/quit":
-                            print("Exiting...")
-                            client_socket.close()
-                            return
-                    except (BrokenPipeError, ConnectionResetError):
-                        print("Error: Connection to server lost.")
-                        return
-                else:
-                    try:
-                        message = client_socket.recv(1024).decode()
-                        if not message:
-                            print("Server closed the connection.")
-                            client_socket.close()
-                            return
-                        if message.startswith("Download_File"):
-                            receive_file(client_socket, message)
-                        else:
-                            print(message)
-                    except (BlockingIOError, ConnectionResetError) as e:
-                        print(f"Error: {e}")
-                        return
-            for s in e:
-                if s == client_socket:
-                    print("Error: Connection to server lost or connection reset.")
-                    client_socket.close()
-                    return
-                
+            pass  # Keep main thread alive to allow background threads to run
+
     except KeyboardInterrupt:
-        print("\nClient terminated.")
+        print("Client terminated.")
     except Exception as e:
         print(f"Unexpected error: {e}")
     finally:
         client_socket.close()
 
+def handle_send(client_socket):
+    try:
+        while True:
+            message = input("")
+            if message.lower() == "/quit":
+                print("Exiting...")
+                client_socket.send(message.encode())
+                client_socket.close()
+                break
+            client_socket.send(message.encode())
+    except Exception as e:
+        print(f"Error sending message: {e}")
+
+def handle_receive(client_socket):
+    try:
+        while True:
+            message = client_socket.recv(1024).decode()
+            if not message:
+                print("Server closed the connection.")
+                client_socket.close()
+                break
+            if message.startswith("Download_File"):
+                receive_file(client_socket, message)
+            else:
+                print(message)
+    except Exception as e:
+        print(f"Error receiving message: {e}")
+
 def receive_file(client_socket, message):
     try:
-        username  =  message.split(" ",4)[1]
-        filename = message.split(" ",4)[2]
-        size = int(message.split(" ",4)[3])
+        username = message.split(" ", 4)[1]
+        filename = message.split(" ", 4)[2]
+        size = int(message.split(" ", 4)[3])
         print(f"Preparing to download {filename} ({size} bytes).")
 
         if not os.path.exists(username):
             os.makedirs(username)
         file_path = os.path.join(username, filename)
 
-        client_socket.setblocking(1)
         with open(file_path, "wb") as f:
             total_received = 0
             while total_received < size:
@@ -89,8 +88,6 @@ def receive_file(client_socket, message):
 
     except Exception as e:
         print(f"Error during file download: {e}")
-    finally:
-        client_socket.setblocking(0)
 
 if __name__ == "__main__":
     client_start()
