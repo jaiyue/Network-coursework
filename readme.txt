@@ -40,47 +40,126 @@ Once connected, the client can use the following commands to interact with the s
 - If the client fails to connect to the server, an error message will be displayed.
 - If any errors occur during communication between the client and server, they will be caught, and the connection will be closed.
 
-
 How to achieve:
-    Server.py：
-    - The server creates a socket, binds it to the specified port and ip, and listens for incoming connections.
-            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            port = int(sys.argv[1]) if len(sys.argv) > 1 else 12300
-            server_socket.bind(('localhost', port))
-            print(f"Server is ready to receive on port {port}")
-            server_socket.listen(5)
-    
-    - The server uses the threading module to implement multithreading, with the main thread focusing on listening for new connections and 
-    receiving requests from clients via the socket.accept() method.Once a new connection is made, the main thread creates a separate thread 
-    for each client, with each subthread handling all of the individual client interactions,such as receiving messages, sending messages, 
-    file requests, and broadcasting messages.This approach allows the sub-threads to run independently without blocking the main thread or 
-    affecting the operation of other clients, thus enabling multiple connections to be processed concurrently.
-            while True:
-                client_socket, address = server_socket.accept()
-                print(f"New client with ip: {address[0]} and Port: {address[1]}")
-                thread = threading.Thread(target=handle_client, args=(client_socket,))
-                thread.start()
 
-    - The handle_client() function is responsible for receiving and processing client requests. It first receives the username 
-    from the client and stores it in the clients dictionary. Then it continuously receives messages from the client and performs 
-    different actions depending on the content of the message.
-            def handle_client(client_socket):
+### 1. Server & Client Connection
+**Requirement**: When a client connects, the server should print the connection details (IP and port), and the client should receive a welcome message.
+
+- **Server Side (server.py)**:
+  - The server listens on a specified port and accepts incoming connections. It prints the IP and port of each client upon connection using 
+        `print(f"New client with ip: {address[0]} and Port: {address[1]}")`.
+  - Once a client connects, the server creates a new thread to handle that client's interactions using `threading.
+        Thread(target=handle_client, args=(client_socket,))`.
+
+- **Client Side (client.py)**:
+    - The client will get and send the username from the command to the server, and will then receive a welcome message from the server. 
+    The welcome message will be sent back to the client via `client_socket.send(welcome_message)`.        
+        `welcome_message = f"Welcome {username} to server".encode()` in the `handle_client` function. 
+
+### 2. Broadcasting & Unicasting Messages
+**Requirement**: Clients should be able to broadcast messages to all other clients or send private messages (unicast) to specific clients.
+
+- **Server Side (server.py)**:
+    - Broadcast**: The function `boardcast_message(message, sender_socket)` sends a message to all connected clients except the sender.
+    Finds all clients except the sender by looping through them and sends the message one by one.
+        for client in clients:
+            if client != sender_socket:
                 try:
-                    username = client_socket.recv(1024).decode()  # Receive the username
-                    clients[client_socket] = username
-                    ...
+                    client.send(message.encode())
+                except Exception as e:
+                    print(f"Error sending message to client: {e}")
 
-    clinet.py：
-    - The client creates a socket, connects to the server, and gets the username from the command to send to the server.
-            username = sys.argv[1]
-            ip = sys.argv[2]
-            port = int(sys.argv[3])
+    - **Unicasting**: The function `send_private_message(receiver, message, sender_socket)` sends a message to a specific client identified by their username. 
+    The function loops through the `clients` dictionary and finds the appropriate user by the supplied username to find the target client socket. 
+    To send a specific message to a specific client via the target client socket
+            def send_private_message(receiver, message, sender_socket):
+                for client in clients:
+                    if clients[client] == receiver:
+                        try:
+                            client.send(message.encode())
+                            return
+                        except Exception as e:
+                            print(f"Error sending private message: {e}")
+                            return
+                sender_socket.send("User not found.".encode())
 
-            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+### 3. Client Disconnecting & Server Handling
+**Requirement**: If a client leaves (either via the `/quit` command or unexpectedly), a message should be broadcast to other clients indicating that the client has left.
+
+- **Server Side (server.py)**:
+    - When a client disconnects, the server calls `remove_client(client_socket)`, which removes the client from the `clients` dictionary, 
+    closes the corresponding socket and sends a message to the other clients indicating that the client has left.    
+        def remove_client(client_socket):
+            if client_socket in clients:
+                username = clients[client_socket]
+                print(f"Client {username} has disconnected.")
+                boardcast_message(f"[{username}] has left the chat.", client_socket)
+                del clients[client_socket]
+                client_socket.close()
+
+### 4. File Sharing
+**Requirement**: The server should have a "SharedFiles" folder. Clients should be able to request access to this folder, view the list of available files, and download them.
+
+- **Server Side (server.py)**:
+    - The `access_files()` function checks if the "SharedFiles" folder exists and returns a list of available files along with their count. The server sends this information back to the client.
+        def access_files():
+            if not os.path.exists(shared_files):
+                return "No shared files"
+            else:
+                files = os.listdir(shared_files)
+                return files, len(files)
+  
+    - When a client requests to download a file, the server checks if the file exists in the "SharedFiles" folder and sends the file size and content to the client.
+        def download(client_socket, filename):
+            try:
+                path = os.path.join(shared_files, filename)
+                with open(path, "rb") as file:
+                    while True:
+                        data = file.read(1024)
+                        if not data:
+                            break
+                        client_socket.send(data)
+                print(f"File {filename} sent successfully.")
+            except Exception as e:
+                print(f"Error sending file {filename}: {e}")
+    
+
+- **Client Side (client.py)**:
+    - Clients can use the `/file` command to request access to the shared files, which will trigger the server to send the list of files and their count.
+    - Clients can download files using the `/download` command. The client will receive the file in chunks and save it to a directory named after the username.
+        def receive_file(client_socket, message):
+            try:
+                username = message.split(" ", 4)[1]  
+                filename = message.split(" ", 4)[2] 
+                ...
+
+### 5. Error & Exception Handling
+**Requirement**: Handle any errors, ensuring that the server does not crash if a client disconnects unexpectedly and that appropriate error messages are displayed.
+
+- **Server Side (server.py)**:
+    - Exception handling is implemented in multiple places to catch errors, such as client disconnections or file-related errors. 
+    If an error occurs, the server deletes the client's letter in clients, closes the client in question and prints a message and continues to run.        
+        except Exception as e:
+            print(f"Error handling client {clients.get(client_socket, 'unknown')}: {e}")
+        finally:
+            remove_client(client_socket)
+
+    - Additionally, when the server terminates, the socket is closed properly to release resources:
+        finally:
+            server_socket.close()
+
+**Requirement**: The server should not allow any client to transmit messages without having first set a username.
+- **Client Side (client.py)**:
+    -Before the client creates a socket, the command is checked for compliance, and if any of the parameters are missing, an error is reported.(sys.argv[1] is mandatory to become username)
+        if len(sys.argv) < 4:
+                print("Error: Missing arguments.\n"
+                    "Usage: python client.py [username] [server_ip] [port]")
+                return
+
+**Requirement**: If the server is not available or port/hostname are wrong, an error message detailing the issue should be printed.
+    - Use the try-except statement to catch errors that occur during the connection process and print detailed error messages.
+        try:
             client_socket.connect((ip, port))
-            print(f"Connected successfully as {username} to {ip}:{port}")
-            client_socket.send(username.encode())
-
-    - The client uses the threading module to implement multithreading, with the main thread focusing on sending and receiving messages 
-    and the subthread handling file requests and downloads. This approach allows the sub-threads to run independently without blocking the main thread or 
-    affecting the operation of other clients, thus enabling multiple connections to be processed concurrently.
+        except socket.gaierror:
+            print(f"Error: Invalid server IP or hostname: {ip}")
+            return
