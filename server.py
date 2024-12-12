@@ -28,8 +28,6 @@ def server_start():
     except Exception as e:
         print(f"Unexpected error: {e}")
     finally:
-        for client in clients:
-            remove_client(client)
         server_socket.close()
 
 def handle_client(client_socket):
@@ -89,8 +87,8 @@ def boardcast_message(message, sender_socket):
                 print(f"Error sending message to client: {e}")
 
 def send_private_message(receiver, message, sender_socket):
-    for client, name in clients.items():
-        if name == receiver:
+    for client in clients:
+        if clients[client] == receiver:
             try:
                 client.send(message.encode())
                 return
