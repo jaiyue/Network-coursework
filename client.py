@@ -26,19 +26,19 @@ def client_start():
 
         welcome_message = client_socket.recv(1024).decode()  # Receive welcome message from server
         print(f"[server]: {welcome_message}")
-
+        print("Use '/quit' to exit the chat room,\n"
+        "'/boardcast' to broadcast a message,\n"
+        "'/unicast [username]' (no square bracket) to send a message to [username],\n"
+        "'/file' to request shared folder,\n"
+        "'/download [filename]' to download a file.\n"
+        )
         # Use a separate thread to handle receiving messages
         receive_thread = threading.Thread(target=handle_receive, args=(client_socket,), daemon=True)
         receive_thread.start()
 
         # Main thread handles sending messages
         while True:
-            user_input = input( "Use '/quit' to exit the chat room,\n"
-        "'/boardcast' to broadcast a message,\n"
-        "'/unicast [username]' (no square bracket) to send a message to [username],\n"
-        "'/file' to request shared folder,\n"
-        "'/download [filename]' to download a file.\n"
-        "Enter your command: ")  # Prompt the user for input
+            user_input = input( "Enter your command: ")  # Prompt the user for input
             
             if user_input.lower() == "/quit":  # If user types "/quit", exit the program
                 print("Exiting...")
