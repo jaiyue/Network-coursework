@@ -6,7 +6,7 @@
 To start the server:
     python server.py [port]
 
-- port: The port number the server will listen on (This can be set depending on when the command is entered, but the default is ’12300‘).
+- ‘<port>': The port number the server will listen on (This can be set depending on when the command is entered, but the default is ’12300‘).
 
 
 ### 2. Running the Client
@@ -50,15 +50,42 @@ How to achieve:
             print(f"Server is ready to receive on port {port}")
             server_socket.listen(5)
     
-    - The server uses the threading module to implement multithreading, with the main thread focusing on listening for new connections and receiving requests from clients via the socket.accept() method.
-    Once a new connection is made, the main thread creates a separate thread for each client, with each subthread handling all of the individual client interactions, such as receiving messages, sending messages, file requests, and broadcasting messages.
-    This approach allows the sub-threads to run independently without blocking the main thread or affecting the operation of other clients, thus enabling multiple connections to be processed concurrently.
+    - The server uses the threading module to implement multithreading, with the main thread focusing on listening for new connections and 
+    receiving requests from clients via the socket.accept() method.Once a new connection is made, the main thread creates a separate thread 
+    for each client, with each subthread handling all of the individual client interactions,such as receiving messages, sending messages, 
+    file requests, and broadcasting messages.This approach allows the sub-threads to run independently without blocking the main thread or 
+    affecting the operation of other clients, thus enabling multiple connections to be processed concurrently.
             while True:
                 client_socket, address = server_socket.accept()
                 print(f"New client with ip: {address[0]} and Port: {address[1]}")
                 thread = threading.Thread(target=handle_client, args=(client_socket,))
                 thread.start()
 
+    - The handle_client() function is responsible for receiving and processing client requests. It first receives the username 
+    from the client and stores it in the clients dictionary. Then it continuously receives messages from the client and performs 
+    different actions depending on the content of the message.
+            def handle_client(client_socket):
+                try:
+                    username = client_socket.recv(1024).decode()  # Receive the username
+                    clients[client_socket] = username
+                    ...
+
+    clinet.py：
+        
+    
+    
+    
+    - Depending on the type of message entered by the client, the server performs the following actions:
+        /quit: When a client sends a /quit message, the server calls the remove_client() function to find a matching client_socket, 
+        remove it from the clients dictionary, and disconnect the client.
+        /file: When a client sends a /file request, the server calls access_files() to find the SERVER_SHARED_FILES folder and list the files available for download.
+        /download <filename>: The client sends  a /download <filename> request specifying the name of the file to be downloaded. The server checks if the file exists. 
+        If the file exists, the server sends the file size information to the client and calls the download() function to send the file contents to the client.
+        /boardcast: The client sends  a /boardcast <message> request. The server parses the message and calls the boardcast_message() function, 
+        which broadcasts the message to all clients. boardcast_message() function iterates through all clients and sends the message to all other clients.
+        /unicast <username> <message>: The client sends  a /unicast <username> <message> request specifying the recipient's username. 
+        The server looks up the target client and sends the message to the target client if it finds it; if the user is not found, 
+        the server returns a ‘User not found’ error message.
 
 
 
