@@ -4,7 +4,12 @@ import threading
 import os
 
 def client_start():
+    client_socket = None  
     try:
+        if len(sys.argv) < 4:
+            print("Error: Missing arguments.\n"
+                "Usage: python client.py [username] [server_ip] [port]")
+            return
         username = sys.argv[1]  # Get the username
         ip = sys.argv[2]  # Get the server IP address
         port = int(sys.argv[3])  # Get the server port
