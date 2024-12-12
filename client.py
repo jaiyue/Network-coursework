@@ -16,7 +16,11 @@ def client_start():
 
         # Create the client socket and connect to the server
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((ip, port))
+        try:
+            client_socket.connect((ip, port))
+        except socket.gaierror:
+            print(f"Error: Invalid server IP or hostname: {ip}")
+            return
         print(f"Connected successfully as {username} to {ip}:{port}")
         client_socket.send(username.encode())  # Send the username to the server
 
