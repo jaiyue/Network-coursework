@@ -6,7 +6,7 @@
 To start the server:
     python server.py [port]
 
-- ‘<port>': The port number the server will listen on (This can be set depending on when the command is entered, but the default is ’12300‘).
+- port: The port number the server will listen on (This can be set depending on when the command is entered, but the default is ’12300‘).
 
 
 ### 2. Running the Client
@@ -71,37 +71,16 @@ How to achieve:
                     ...
 
     clinet.py：
-        
-    
-    
-    
-    - Depending on the type of message entered by the client, the server performs the following actions:
-        /quit: When a client sends a /quit message, the server calls the remove_client() function to find a matching client_socket, 
-        remove it from the clients dictionary, and disconnect the client.
-        /file: When a client sends a /file request, the server calls access_files() to find the SERVER_SHARED_FILES folder and list the files available for download.
-        /download <filename>: The client sends  a /download <filename> request specifying the name of the file to be downloaded. The server checks if the file exists. 
-        If the file exists, the server sends the file size information to the client and calls the download() function to send the file contents to the client.
-        /boardcast: The client sends  a /boardcast <message> request. The server parses the message and calls the boardcast_message() function, 
-        which broadcasts the message to all clients. boardcast_message() function iterates through all clients and sends the message to all other clients.
-        /unicast <username> <message>: The client sends  a /unicast <username> <message> request specifying the recipient's username. 
-        The server looks up the target client and sends the message to the target client if it finds it; if the user is not found, 
-        the server returns a ‘User not found’ error message.
+    - The client creates a socket, connects to the server, and gets the username from the command to send to the server.
+            username = sys.argv[1]
+            ip = sys.argv[2]
+            port = int(sys.argv[3])
 
+            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_socket.connect((ip, port))
+            print(f"Connected successfully as {username} to {ip}:{port}")
+            client_socket.send(username.encode())
 
-
-
-## File Structure
-```
-/server.py       # Server-side code
-/client.py       # Client-side code
-/readme.txt      # This documentation
-```
-
-## Library Dependencies
-This project uses Python's standard library for implementation. The main libraries used are:
-- `socket`: For network communication.
-- `select`: For non-blocking I/O operations.
-- `os`: For file operations.
-- 'sys': For system-specific parameters and functions.
-
-## Additional Notes
+    - The client uses the threading module to implement multithreading, with the main thread focusing on sending and receiving messages 
+    and the subthread handling file requests and downloads. This approach allows the sub-threads to run independently without blocking the main thread or 
+    affecting the operation of other clients, thus enabling multiple connections to be processed concurrently.
